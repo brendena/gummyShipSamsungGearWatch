@@ -34,7 +34,7 @@ BasicGame.Game.prototype = {
   /*end of enemy*/
     
   /*player*/
-    this.player = this.add.sprite(100, 50, 'player');
+    this.player = this.add.sprite(this.game.width/2, this.game.height - 100, 'player');
     this.player.anchor.setTo(0.5, 0.5);
     this.physics.enable(this.player, Phaser.Physics.ARCADE);
   //just added speed to character
