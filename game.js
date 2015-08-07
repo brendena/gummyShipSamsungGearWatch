@@ -28,6 +28,7 @@ BasicGame.Game.prototype = {
   update: function () {
     this.checkCollisions();
     this.spawnEnemies();
+    this.enemyFire();
   //if your desktop or laptop then run this code to move plane
     if(this.game.device.desktop){
       this.processPlayerInput();
@@ -51,8 +52,29 @@ BasicGame.Game.prototype = {
     );
     
     this.physics.arcade.overlap(
+      this.bulletPool, 
+      this.shooterPool, 
+      this.enemyHit, 
+      null, this
+    );
+    
+    this.physics.arcade.overlap(
       this.player,
       this.enemyPool,
+      this.playerHit,
+      null, this
+    );
+    
+    this.physics.arcade.overlap(
+      this.player, 
+      this.shooterPool,
+      this.playerHit,
+      null, this
+    );
+    
+    this.physics.arcade.overlap(
+      this.player,
+      this.enemyBulletPool,
       this.playerHit,
       null, this
     );
@@ -71,6 +93,32 @@ BasicGame.Game.prototype = {
       enemy.body.velocity.y = this.rnd.integerInRange(30, 60); 
       enemy.play('fly'); 
       
+    }
+    
+    if (this.nextShooterAt < this.time.now && this.shooterPool.countDead() > 0){
+      this.nextShooterAt = this.time.now + this.shooterDelay;
+      var shooter = this.shooterPool.getFirstExists(false);
+      
+      //spawn at a random location at the top
+      shooter.reset(
+        this.rnd.integerInRange(20, this.game.width - 20), 
+        0, BasicGame.SHOOTER_HEALTH
+      );
+      
+      //choose a random target location at the bottom
+      var target = this.rnd.integerInRange(20, this.game.width - 20);
+      
+      shooter.rotation = this.physics.arcade.moveToXY(
+        shooter, target, this.game.height,
+        this.rnd.integerInRange(
+          BasicGame.SHOOTER_MIN_VELOCITY, BasicGame.SHOOTER_MAX_VELOCITY  
+        )
+      ) - Math.PI/ 2;
+      
+      shooter.play('fly');
+      
+    //each shooter has their own shot timer
+      shooter.nextShotAt = 0;
     }
     
   },
@@ -151,6 +199,18 @@ BasicGame.Game.prototype = {
     this.damageEnemy(enemy, BasicGame.BULLET_DAMAGE);
     
   },
+  enemyFire: function(){
+    this.shooterPool.forEachAlive(function(enemy){
+      if (this.time.now > enemy.nextShotAt && this.enemyBulletPool.countDead() > 0){
+        var bullet = this.enemyBulletPool.getFirstExists(false);
+        bullet.reset(enemy.x, enemy.y);
+        this.physics.arcade.moveToObject(
+          bullet, this.player, BasicGame.ENEMY_BULLET_VELOCITY
+        );
+        enemy.nextShotAt = this.time.now + BasicGame.SHOOTER_SHOT_DELAY;
+      }
+    }, this);
+  },
   damageEnemy: function(enemy, damage){
     //damage reduces it health by a given amount.  Once it hits zero then its kill();
     enemy.damage(damage);
@@ -229,7 +289,7 @@ BasicGame.Game.prototype = {
     this.enemyPool = this.add.group(); 
     this.enemyPool.enableBody = true; 
     this.enemyPool.physicsBodyType = Phaser.Physics.ARCADE; 
-    this.enemyPool.createMultiple(50, 'greenEnemy'); 
+    this.enemyPool.createMultiple(50, 'blueEnemy'); 
     this.enemyPool.setAll('anchor.x', 0.5); 
     this.enemyPool.setAll('anchor.y', 0.5); 
     this.enemyPool.setAll('outOfBoundsKill', true); 
@@ -242,10 +302,38 @@ BasicGame.Game.prototype = {
     });
     
     this.nextEnemyAt = 0;
+
     this.enemyDelay = BasicGame.SPAWN_ENEMY_DELAY;
+
+
+    this.shooterPool = this.add.group(); 
+    this.shooterPool.enableBody = true; 
+    this.shooterPool.physicsBodyType = Phaser.Physics.ARCADE; 
+    this.shooterPool.createMultiple(20, 'redEnemy'); 
+    this.shooterPool.setAll('anchor.x', 0.5); 
+    this.shooterPool.setAll('anchor.y', 0.5);
+    this.shooterPool.setAll('outOfBoundsKill', true); 
+    this.shooterPool.setAll('checkWorldBounds', true); 
+    this.shooterPool.setAll( 'reward', BasicGame.SHOOTER_REWARD, false, false, 0, true );
     
+    this.shooterPool.forEach(function (enemy) { 
+      enemy.animations.add('fly', [ 0, 1, 2 ], 20, true);
+    });
+    // start spawning 5 seconds into the game
+    this.nextShooterAt = this.time.now + Phaser.Timer.SECOND * 5;
+    this.shooterDelay = BasicGame.SPAWN_SHOOTER_DELAY;
   },
   setupBullets: function (){
+    this.enemyBulletPool = this.add.group();
+    this.enemyBulletPool.enableBody = true;
+    this.enemyBulletPool.physicsBodyType = Phaser.Physics.ARCADE;
+    this.enemyBulletPool.createMultiple(100, 'enemyBullet');
+    this.enemyBulletPool.setAll('anchor.x', 0.5); 
+    this.enemyBulletPool.setAll('anchor.y', 0.5); 
+    this.enemyBulletPool.setAll('outOfBoundsKill', true); 
+    this.enemyBulletPool.setAll('checkWorldBounds', true); 
+    this.enemyBulletPool.setAll('reward', 0, false, false, 0, true);
+    
     this.bulletPool = this.add.group();
   //enables p hysics on all the sprites
     this.bulletPool.enableBody = true;
@@ -304,7 +392,7 @@ BasicGame.Game.prototype = {
      
     var msg = win ? 'You Win!!!' : 'Game Over!'; 
     this.endText = this.add.text(  this.game.width / 2, this.game.height / 2 - 60, msg,
-                                { font: '72px serif', fill: '#fff' }  ); 
+                                { font: '50px serif', fill: '#fff' }  ); 
     this.endText.anchor.setTo(0.5, 0);
     this.showReturn = this.time.now + BasicGame.RETURN_MESSAGE_DELAY;
     
@@ -319,6 +407,8 @@ BasicGame.Game.prototype = {
     this.player.destroy(); 
     this.enemyPool.destroy(); 
     this.bulletPool.destroy(); 
+    this.shooterPool.destroy();
+    this.enemyBulletPool.destroy();
     this.explosionPool.destroy(); 
     this.instructions.destroy(); 
     this.scoreText.destroy(); 

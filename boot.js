@@ -15,7 +15,7 @@ var BasicGame = {
   SPAWN_SHOOTER_DELAY: Phaser.Timer.SECOND * 3,
 
   SHOT_DELAY: Phaser.Timer.SECOND * 0.1,
-  SHOOTER_SHOT_DELAY: Phaser.Timer.SECOND * 2,
+  SHOOTER_SHOT_DELAY: Phaser.Timer.SECOND * 1,
   BOSS_SHOT_DELAY: Phaser.Timer.SECOND,
 
   ENEMY_HEALTH: 2,
@@ -63,6 +63,7 @@ BasicGame.Boot.prototype = {
       
       this.scale.scaleMode = Phaser.ScaleManager.EXACT_FIT;
       this.scale.pageAlignVertically  = true;
+      //this.scale.maxWidth = window.innerWidth - 300;
       
     }
     console.log(this.scale)
